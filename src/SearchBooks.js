@@ -1,12 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Debounce } from 'react-throttle';
 import Book from './Book';
 import * as BooksAPI from './BooksAPI';
-import { customTrim } from './Util/Functions';
 
 class SearchBooks extends React.Component {
 	state = {
-		query: '',
 		books: []
 	};
 
@@ -18,18 +17,25 @@ class SearchBooks extends React.Component {
 		}
 	};
 
-	updateQuery = query => {
-		this.setState({ query: customTrim(query) }, () => {
-			BooksAPI.search(query.trim()).then(response => {
-				console.log(query, response);
-				this.treateResponse(response);
-			});
+	browseBooks = query => {
+		BooksAPI.search(query.trim()).then(response => {
+			this.treateResponse(response);
 		});
 	};
 
+	mergeShelf = booksOnTheShelf => book => {
+		const bookFound = booksOnTheShelf.find(b => b.id === book.id);
+		if (bookFound) book['shelf'] = bookFound.shelf;
+		return book;
+	};
+
 	render() {
-		let { onChangeShelfBook } = this.props;
-		let { query, books } = this.state;
+		let { onChangeShelfBook, booksOnTheShelf } = this.props;
+		let { books } = this.state;
+
+		const mergeByShelf = this.mergeShelf(booksOnTheShelf);
+		const booksShowing = books.map(b => mergeByShelf(b));
+
 		return (
 			<div className="search-books">
 				<div className="search-books-bar">
@@ -37,17 +43,18 @@ class SearchBooks extends React.Component {
 						Close
 					</Link>
 					<div className="search-books-input-wrapper">
-						<input
-							type="text"
-							value={query}
-							onChange={e => this.updateQuery(e.target.value)}
-							placeholder="Search by title or author"
-						/>
+						<Debounce time="200" handler="onChange">
+							<input
+								type="text"
+								onChange={e => this.browseBooks(e.target.value)}
+								placeholder="Search by title or author"
+							/>
+						</Debounce>
 					</div>
 				</div>
 				<div className="search-books-results">
 					<ol className="books-grid">
-						{books.map((book, index) => (
+						{booksShowing.map((book, index) => (
 							<Book key={index} book={book} onChangeShelfBook={e => onChangeShelfBook(e, book)} />
 						))}
 					</ol>
